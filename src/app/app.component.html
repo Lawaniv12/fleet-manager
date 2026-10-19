@@ -1,9 +1,9 @@
 @if (authPage()) {
   <router-outlet />
 } @else {
-<div class="flex h-screen bg-gray-50 overflow-hidden">
+<div class="flex min-h-screen bg-gray-50">
   <!-- Desktop Sidebar -->
-  <aside class="hidden lg:flex flex-col w-64 bg-white border-r border-gray-200">
+  <aside class="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-gray-200 bg-white lg:flex">
     <div class="p-6">
       <h2 class="text-2xl font-bold text-blue-600">Keke Ledger</h2>
     </div>
@@ -18,9 +18,9 @@
     </nav>
   </aside>
 
-  <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+  <div class="flex min-w-0 flex-1 flex-col">
     <app-header />
-    <main class="flex-1 overflow-y-auto pb-20 lg:pb-0">
+    <main class="min-w-0 flex-1 overflow-visible pb-24 lg:pb-8">
       <router-outlet />
     </main>
   </div>

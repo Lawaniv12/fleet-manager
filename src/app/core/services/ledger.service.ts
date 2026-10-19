@@ -14,6 +14,7 @@ export class LedgerService {
   public assignments = signal<RiderAssignment[]>([]);
   public ledgerTimeline = signal<LedgerItem[]>([]);
   public loading = signal<boolean>(false);
+  public dataLoadError = signal('');
   // Add this inside your LedgerService class in src/app/core/services/ledger.service.ts:
 
 
@@ -24,32 +25,44 @@ export class LedgerService {
 
   async loadInitialData() {
     this.loading.set(true);
-    await Promise.allSettled([
+    this.dataLoadError.set('');
+    const results = await Promise.allSettled([
       this.fetchIncomes(),
       this.fetchExpenses(),
       this.fetchAssignments(),  
       this.fetchLedgerTimeline()
     ]);
+    const failures = results
+      .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+      .map(result => result.reason instanceof Error ? result.reason.message : String(result.reason));
+    this.dataLoadError.set(failures.join(' '));
     this.loading.set(false);
   }
 
   async fetchIncomes() {
-    const { data } = await this.supabase.from('income').select('*').order('payment_date', { ascending: false });
+    const { data, error } = await this.supabase.from('income').select('*').order('payment_date', { ascending: false });
+    if (error) throw error;
     if (data) this.incomes.set(data);
   }
 
   async fetchExpenses() {
-    const { data } = await this.supabase.from('expenses').select('*').order('expense_date', { ascending: false });
+    const { data, error } = await this.supabase.from('expenses').select('*').order('expense_date', { ascending: false });
+    if (error) throw error;
     if (data) this.expenses.set(data);
   }
 
   async fetchAssignments() {
-    const { data } = await this.supabase.from('rider_assignments').select('*, rider:riders(*), tricycle:tricycles(*)').eq('is_active', true);
-    if (data) this.assignments.set(data);
+    const { data, error } = await this.supabase
+      .from('rider_assignments')
+      .select('*')
+      .eq('is_active', true);
+    if (error) throw error;
+    this.assignments.set(data ?? []);
   }
 
   async fetchLedgerTimeline() {
-    const { data } = await this.supabase.from('ledger_view').select('*').order('txn_date', { ascending: false });
+    const { data, error } = await this.supabase.from('ledger_view').select('*').order('txn_date', { ascending: false });
+    if (error) throw error;
     if (data) this.ledgerTimeline.set(data);
   }
 

@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, OnInit } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Income, LedgerItem, RiderAssignment } from '../../core/models/keke.models';
 import { LedgerService } from '../../core/services/ledger.service';
@@ -44,19 +44,27 @@ interface OverdueRider {
   styleUrl: './dashboard.component.scss'
 })
 export class DashboardComponent implements OnInit {
-  private readonly ledgerService = inject(LedgerService);
+  protected readonly ledgerService = inject(LedgerService);
   private readonly vehicleService = inject(VehicleService);
   private readonly riderService = inject(RiderService);
+  private readonly dashboardLoadError = signal('');
 
   protected readonly currentDate = new Date();
   protected readonly greeting = this.getGreeting();
   protected readonly isLoading = computed(
     () => this.ledgerService.loading() || this.vehicleService.loading() || this.riderService.loading()
   );
+  protected readonly dataLoadError = computed(
+    () => this.dashboardLoadError() || this.ledgerService.dataLoadError()
+  );
 
   protected readonly metrics = computed<MetricCard[]>(() => {
     const financials = this.ledgerService.dashboardMetrics();
-    const activeRiders = new Set(this.ledgerService.assignments().map(assignment => assignment.rider_id)).size;
+    const activeRiders = new Set(
+      this.ledgerService.assignments()
+        .filter(assignment => assignment.is_active && assignment.rider_id)
+        .map(assignment => assignment.rider_id)
+    ).size;
 
     return [
       {
@@ -147,9 +155,15 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit(): void {
     void Promise.allSettled([
+      this.ledgerService.loadInitialData(),
       this.vehicleService.fetchVehicles(),
       this.riderService.fetchRiders()
-    ]);
+    ]).then(results => {
+      const failures = results
+        .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+        .map(result => result.reason instanceof Error ? result.reason.message : String(result.reason));
+      this.dashboardLoadError.set(failures.join(' '));
+    });
   }
 
   protected activityTitle(item: LedgerItem): string {
