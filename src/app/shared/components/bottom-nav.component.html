@@ -1,0 +1,9 @@
+<nav class="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-16 px-2 z-50">
+  @for (link of navLinks; track link.path) {
+    <a [routerLink]="link.path"
+       routerLinkActive="text-blue-600"
+       class="flex flex-col items-center justify-center flex-1 text-gray-500 py-1">
+      <span class="text-[10px] font-bold mt-1 uppercase">{{ link.label }}</span>
+    </a>
+  }
+</nav>

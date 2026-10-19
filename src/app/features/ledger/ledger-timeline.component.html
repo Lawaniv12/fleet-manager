@@ -1,0 +1,57 @@
+<section class="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+  <header class="flex flex-wrap items-center justify-between gap-4">
+    <div><p class="text-sm font-semibold text-blue-700">Bookkeeping</p><h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-950">Ledger</h1><p class="mt-1 text-sm text-slate-500">Record rider collections and Keke running costs.</p></div>
+    <div class="flex flex-wrap gap-2"><button type="button" (click)="expenseFormOpen.set(true)" class="min-h-10 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Add expense</button><button type="button" (click)="paymentFormOpen.set(true)" class="min-h-10 rounded-xl bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-800">Record payment</button></div>
+  </header>
+
+  @if (message()) { <p class="rounded-xl border px-4 py-3 text-sm" [class.border-rose-200]="messageIsError()" [class.bg-rose-50]="messageIsError()" [class.text-rose-800]="messageIsError()" [class.border-emerald-200]="!messageIsError()" [class.bg-emerald-50]="!messageIsError()" [class.text-emerald-800]="!messageIsError()" role="status">{{ message() }}</p> }
+
+  <section aria-label="Ledger activity" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+    @if (ledgerService.ledgerTimeline().length > 0) {
+      <ol class="divide-y divide-slate-100">
+        @for (item of ledgerService.ledgerTimeline(); track item.id) {
+          <li class="flex items-center gap-3 py-4 first:pt-0 last:pb-0 sm:gap-4">
+            <span class="flex size-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold" [class.bg-emerald-50]="item.txn_type === 'income'" [class.text-emerald-700]="item.txn_type === 'income'" [class.bg-rose-50]="item.txn_type === 'expense'" [class.text-rose-700]="item.txn_type === 'expense'" aria-hidden="true">{{ item.txn_type === 'income' ? '↑' : '↓' }}</span>
+            <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold text-slate-900">{{ getLabel(item) }}</p><p class="mt-1 truncate text-xs text-slate-500">{{ getDescription(item) }} <span class="px-1 text-slate-300">·</span> {{ item.txn_date | date:'d MMM y, h:mm a' }}</p></div>
+            <p class="shrink-0 text-sm font-bold tabular-nums" [class.text-emerald-700]="item.txn_type === 'income'" [class.text-rose-700]="item.txn_type === 'expense'">{{ item.txn_type === 'income' ? '+' : '−' }}{{ (item.amount < 0 ? -item.amount : item.amount) | naira }}</p>
+          </li>
+        }
+      </ol>
+    } @else {
+      <div class="py-12 text-center"><p class="font-semibold text-slate-800">No ledger entries yet</p><p class="mt-1 text-sm text-slate-500">Record a payment or expense to get started.</p></div>
+    }
+  </section>
+</section>
+
+@if (paymentFormOpen()) {
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-0 sm:items-center sm:p-4" (click)="paymentFormOpen.set(false)">
+    <section role="dialog" aria-modal="true" aria-labelledby="payment-title" class="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-7" (click)="$event.stopPropagation()">
+      <div class="mb-5 flex items-start justify-between"><div><h2 id="payment-title" class="text-lg font-bold text-slate-950">Record rider payment</h2><p class="mt-1 text-sm text-slate-500">The next due date will be updated from the rider’s agreement cycle.</p></div><button type="button" (click)="paymentFormOpen.set(false)" aria-label="Close payment form" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100">✕</button></div>
+      <form class="space-y-4" (submit)="recordPayment($event)">
+        <label class="block text-sm font-medium text-slate-700">Active rider<select name="rider_id" required class="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"><option value="">Choose rider</option>@for (assignment of ledgerService.assignments(); track assignment.id) { @if (assignment.is_active) { <option [value]="assignment.rider_id">{{ assignment.rider?.name || assignment.rider_id }} · {{ assignment.tricycle?.plate_number || assignment.tricycle_id }}</option> } }</select></label>
+        <label class="block text-sm font-medium text-slate-700">Amount received (₦)<input name="amount" type="number" min="1" step="0.01" required class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
+        <label class="block text-sm font-medium text-slate-700">Payment date<input name="payment_date" type="date" [value]="today" required class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
+        <label class="block text-sm font-medium text-slate-700">Note <span class="font-normal text-slate-400">(optional)</span><input name="notes" class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
+        @if (messageIsError() && message()) { <p class="text-sm text-rose-700" role="alert">{{ message() }}</p> }
+        <button [disabled]="busy() || ledgerService.assignments().length === 0" class="min-h-11 w-full rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">{{ busy() ? 'Saving…' : 'Save payment' }}</button>
+      </form>
+    </section>
+  </div>
+}
+
+@if (expenseFormOpen()) {
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-0 sm:items-center sm:p-4" (click)="expenseFormOpen.set(false)">
+    <section role="dialog" aria-modal="true" aria-labelledby="expense-title" class="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-7" (click)="$event.stopPropagation()">
+      <div class="mb-5 flex items-start justify-between"><div><h2 id="expense-title" class="text-lg font-bold text-slate-950">Add business expense</h2><p class="mt-1 text-sm text-slate-500">Attach the cost to the Keke it belongs to.</p></div><button type="button" (click)="expenseFormOpen.set(false)" aria-label="Close expense form" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100">✕</button></div>
+      <form class="space-y-4" (submit)="recordExpense($event)">
+        <label class="block text-sm font-medium text-slate-700">Tricycle<select name="tricycle_id" required class="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"><option value="">Choose tricycle</option>@for (vehicle of vehicleService.vehicles(); track vehicle.id) { <option [value]="vehicle.id">{{ vehicle.plate_number }}</option> }</select></label>
+        <label class="block text-sm font-medium text-slate-700">Category<select name="category" class="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100">@for (category of expenseCategories; track category) { <option [value]="category">{{ category }}</option> }</select></label>
+        <label class="block text-sm font-medium text-slate-700">Description<input name="description" required class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
+        <label class="block text-sm font-medium text-slate-700">Amount (₦)<input name="amount" type="number" min="1" step="0.01" required class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
+        <label class="block text-sm font-medium text-slate-700">Expense date<input name="expense_date" type="date" [value]="today" required class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
+        @if (messageIsError() && message()) { <p class="text-sm text-rose-700" role="alert">{{ message() }}</p> }
+        <button [disabled]="busy() || vehicleService.vehicles().length === 0" class="min-h-11 w-full rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">{{ busy() ? 'Saving…' : 'Save expense' }}</button>
+      </form>
+    </section>
+  </div>
+}

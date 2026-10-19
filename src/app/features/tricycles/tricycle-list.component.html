@@ -1,0 +1,61 @@
+<section class="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+  <header class="flex flex-wrap items-center justify-between gap-4"><div><p class="text-sm font-semibold text-blue-700">Fleet</p><h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-950">Tricycles</h1><p class="mt-1 text-sm text-slate-500">Manage your Kekes and rider agreements.</p></div><button type="button" (click)="openForm()" class="min-h-11 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-800">Add tricycle</button></header>
+
+  @if (message()) { <p class="rounded-xl border px-4 py-3 text-sm" [class.border-rose-200]="messageIsError()" [class.bg-rose-50]="messageIsError()" [class.text-rose-800]="messageIsError()" [class.border-emerald-200]="!messageIsError()" [class.bg-emerald-50]="!messageIsError()" [class.text-emerald-800]="!messageIsError()" role="status">{{ message() }}</p> }
+
+  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    @for (keke of vehicleService.vehicles(); track keke.id) {
+      <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex items-start gap-3">
+          <span class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700" aria-hidden="true"><svg class="size-6" viewBox="0 0 24 24" fill="none"><path d="M5 16V7.5A2.5 2.5 0 0 1 7.5 5h9A2.5 2.5 0 0 1 19 7.5V16M4 16h16M7 19a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm10 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2ZM8 8h8v5H8V8Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
+          <div class="min-w-0 flex-1"><h2 class="truncate font-bold text-slate-950">{{ keke.plate_number }}</h2><p class="mt-1 text-sm text-slate-500">{{ keke.color }} <span class="px-1 text-slate-300">·</span> {{ keke.status }}</p></div>
+        </div>
+        <div class="mt-4 rounded-xl bg-slate-50 px-3.5 py-3">
+          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Current rider</p>
+          @if (activeRider(keke); as rider) { <p class="mt-1 text-sm font-semibold text-slate-800">{{ rider.name }}</p><p class="mt-0.5 text-xs text-slate-500">{{ rider.phone }}</p> }
+          @else { <p class="mt-1 text-sm text-slate-500">No active assignment</p> }
+        </div>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button type="button" (click)="openAssignment(keke)" class="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 hover:bg-blue-100">Assign rider</button>
+          <button type="button" (click)="openForm(keke)" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Edit</button>
+          <button type="button" (click)="deleteVehicle(keke)" class="rounded-lg px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50">Delete</button>
+        </div>
+      </article>
+    } @empty {
+      <div class="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center"><p class="font-semibold text-slate-800">No tricycles registered</p><p class="mt-1 text-sm text-slate-500">Add a Keke to start recording income and expenses.</p></div>
+    }
+  </div>
+</section>
+
+@if (formOpen()) {
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-0 sm:items-center sm:p-4" (click)="closeForm()">
+    <section role="dialog" aria-modal="true" aria-labelledby="tricycle-form-title" class="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-7" (click)="$event.stopPropagation()">
+      <div class="mb-5 flex items-start justify-between"><div><h2 id="tricycle-form-title" class="text-lg font-bold text-slate-950">{{ editing() ? 'Edit tricycle' : 'Add tricycle' }}</h2><p class="mt-1 text-sm text-slate-500">Keep vehicle details up to date.</p></div><button type="button" (click)="closeForm()" aria-label="Close tricycle form" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100">✕</button></div>
+      <form class="space-y-4" (submit)="saveVehicle($event)">
+        <label class="block text-sm font-medium text-slate-700">Plate number<input name="plate_number" required [value]="editing()?.plate_number ?? ''" placeholder="ABC-123XY" class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
+        <label class="block text-sm font-medium text-slate-700">Color<input name="color" required [value]="editing()?.color ?? ''" class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
+        <label class="block text-sm font-medium text-slate-700">Purchase cost (₦)<input name="purchase_cost" type="number" min="0" step="0.01" required [value]="editing()?.purchase_cost ?? 0" class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
+        <label class="block text-sm font-medium text-slate-700">Registration date<input name="registration_date" type="date" required [value]="editing()?.registration_date ?? ''" class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
+        <label class="block text-sm font-medium text-slate-700">Status<select name="status" [value]="editing()?.status ?? 'Active'" class="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"><option>Active</option><option>Under Repair</option><option>Inactive</option><option>Sold</option></select></label>
+        @if (messageIsError() && message()) { <p class="text-sm text-rose-700" role="alert">{{ message() }}</p> }
+        <button [disabled]="busy()" class="min-h-11 w-full rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">{{ busy() ? 'Saving…' : 'Save tricycle' }}</button>
+      </form>
+    </section>
+  </div>
+}
+
+@if (assignmentOpen()) {
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-0 sm:items-center sm:p-4" (click)="closeAssignment()">
+    <section role="dialog" aria-modal="true" aria-labelledby="assignment-title" class="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-7" (click)="$event.stopPropagation()">
+      <div class="mb-5 flex items-start justify-between"><div><h2 id="assignment-title" class="text-lg font-bold text-slate-950">Assign a rider</h2><p class="mt-1 text-sm text-slate-500">{{ assignmentTricycle()?.plate_number }} · set payment terms.</p></div><button type="button" (click)="closeAssignment()" aria-label="Close assignment form" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100">✕</button></div>
+      <form class="space-y-4" (submit)="assignRider($event)">
+        <label class="block text-sm font-medium text-slate-700">Rider<select name="rider_id" required class="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"><option value="">Choose rider</option>@for (rider of riderService.riders(); track rider.id) { <option [value]="rider.id">{{ rider.name }} · {{ rider.phone }}</option> }</select></label>
+        <label class="block text-sm font-medium text-slate-700">Agreement amount per cycle (₦)<input name="agreement_amount" type="number" min="1" step="0.01" required class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
+        <label class="block text-sm font-medium text-slate-700">Payment cycle (days)<input name="payment_cycle_days" type="number" min="1" max="365" value="1" required class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
+        <label class="block text-sm font-medium text-slate-700">Start date<input name="start_date" type="date" required [value]="today" class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
+        @if (messageIsError() && message()) { <p class="text-sm text-rose-700" role="alert">{{ message() }}</p> }
+        <button [disabled]="busy() || riderService.riders().length === 0" class="min-h-11 w-full rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">{{ busy() ? 'Saving…' : 'Save assignment' }}</button>
+      </form>
+    </section>
+  </div>
+}

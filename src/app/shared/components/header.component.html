@@ -1,0 +1,12 @@
+<header class="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
+  <h1 class="text-lg font-bold text-blue-700 lg:hidden">Keke Ledger</h1>
+  <div class="hidden lg:block"></div>
+  <div class="flex items-center gap-3">
+    <div class="hidden text-right sm:block">
+      <p class="max-w-48 truncate text-xs font-bold text-slate-900">{{ auth.user()?.email || 'Account' }}</p>
+      <p class="text-[10px] text-slate-500">Keke Ledger</p>
+    </div>
+    <span class="flex size-9 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-xs font-bold uppercase text-blue-700" aria-hidden="true">{{ (auth.user()?.email || 'K').slice(0, 1) }}</span>
+    <button type="button" (click)="signOut()" [disabled]="signingOut()" class="rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-blue-700 disabled:opacity-60">{{ signingOut() ? 'Signing out…' : 'Sign out' }}</button>
+  </div>
+</header>

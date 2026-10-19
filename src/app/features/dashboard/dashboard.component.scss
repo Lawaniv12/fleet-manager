@@ -1,0 +1,31 @@
+:host {
+	display: block;
+	min-height: 100%;
+}
+
+.chart-grid {
+	position: relative;
+	background-image: linear-gradient(
+		to bottom,
+		transparent calc(100% - 1px),
+		rgb(226 232 240 / 75%) 100%
+	);
+	background-size: 100% 25%;
+}
+
+.chart-bars {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.chart-bar {
+	transition: height 300ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.chart-bar {
+		transition: none;
+	}
+}
