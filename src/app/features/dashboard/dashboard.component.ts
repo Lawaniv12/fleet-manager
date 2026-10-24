@@ -5,6 +5,7 @@ import { Income, LedgerItem, RiderAssignment } from '../../core/models/keke.mode
 import { LedgerService } from '../../core/services/ledger.service';
 import { RiderService } from '../../core/services/rider.service';
 import { VehicleService } from '../../core/services/vehicle.service';
+import { NotificationService } from '../../core/services/notification.service';
 import { NairaCurrencyPipe } from '../../shared/pipes/naira-currency.pipe';
 
 type MetricIcon = 'fleet' | 'riders' | 'expected' | 'received' | 'outstanding' | 'expenses' | 'profit';
@@ -47,7 +48,10 @@ export class DashboardComponent implements OnInit {
   protected readonly ledgerService = inject(LedgerService);
   private readonly vehicleService = inject(VehicleService);
   private readonly riderService = inject(RiderService);
+  protected readonly notificationService = inject(NotificationService);
   private readonly dashboardLoadError = signal('');
+  protected readonly notificationMessage = signal('');
+  protected readonly notificationError = signal(false);
 
   protected readonly currentDate = new Date();
   protected readonly greeting = this.getGreeting();
@@ -144,6 +148,7 @@ export class DashboardComponent implements OnInit {
     const incomes = this.ledgerService.incomes();
 
     return assignments
+      .filter(assignment => assignment.is_active)
       .map(assignment => this.toOverdueRider(assignment, incomes))
       .filter((rider): rider is OverdueRider => rider !== null)
       .sort((a, b) => b.daysOverdue - a.daysOverdue)
@@ -152,6 +157,18 @@ export class DashboardComponent implements OnInit {
 
   protected readonly incomeTrend = computed(() => this.buildTrend('income'));
   protected readonly expenseTrend = computed(() => this.buildTrend('expense'));
+
+  protected async enableReminders(): Promise<void> {
+    this.notificationMessage.set('');
+    try {
+      await this.notificationService.enableReminders();
+      this.notificationMessage.set('Browser reminders enabled on this device.');
+      this.notificationError.set(false);
+    } catch (error) {
+      this.notificationMessage.set(error instanceof Error ? error.message : 'Could not enable browser reminders.');
+      this.notificationError.set(true);
+    }
+  }
 
   ngOnInit(): void {
     void Promise.allSettled([
@@ -214,7 +231,10 @@ export class DashboardComponent implements OnInit {
   private toOverdueRider(assignment: RiderAssignment, incomes: Income[]): OverdueRider | null {
     const paymentCycleDays = Math.max(1, Number(assignment.payment_cycle_days) || 2);
     const lastPayment = incomes
-      .filter(income => income.rider_id === assignment.rider_id)
+      .filter(income => income.rider_assignment_id === assignment.id
+        || (!income.rider_assignment_id
+          && income.rider_id === assignment.rider_id
+          && income.payment_date >= assignment.start_date))
       .reduce<Income | undefined>((latest, income) => {
         if (!latest || Date.parse(income.payment_date) > Date.parse(latest.payment_date)) return income;
         return latest;

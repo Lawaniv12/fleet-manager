@@ -54,8 +54,8 @@ export class LedgerService {
   async fetchAssignments() {
     const { data, error } = await this.supabase
       .from('rider_assignments')
-      .select('*')
-      .eq('is_active', true);
+      .select('*, rider:riders(*), tricycle:tricycles(*)')
+      .order('start_date', { ascending: false });
     if (error) throw error;
     this.assignments.set(data ?? []);
   }
@@ -80,52 +80,34 @@ export class LedgerService {
 
   async assignRider(assignment: RiderAssignment) {
     const today = new Date().toISOString().slice(0, 10);
-    const { error: closeError } = await this.supabase
-      .from('rider_assignments')
-      .update({ is_active: false, end_date: today })
-      .eq('is_active', true)
-      .or(`rider_id.eq.${assignment.rider_id},tricycle_id.eq.${assignment.tricycle_id}`);
-    if (closeError) throw closeError;
-
-    const { error } = await this.supabase.from('rider_assignments').insert({
-      ...assignment,
-      start_date: assignment.start_date || today,
-      is_active: true
+    const { error } = await this.supabase.rpc('assign_rider', {
+      p_rider_id: assignment.rider_id,
+      p_tricycle_id: assignment.tricycle_id,
+      p_agreement_amount: assignment.agreement_amount,
+      p_payment_cycle_days: assignment.payment_cycle_days,
+      p_start_date: assignment.start_date || today
     });
     if (error) throw error;
     await this.loadInitialData();
   }
 
   async recordRiderPayment(income: Income): Promise<void> {
-    const { error } = await this.supabase.from('income').insert([income]);
+    if (!income.rider_assignment_id) throw new Error('Choose the active agreement for this payment.');
+    const { error } = await this.supabase.rpc('record_rider_payment', {
+      p_assignment_id: income.rider_assignment_id,
+      p_amount: income.amount,
+      p_payment_date: income.payment_date,
+      p_notes: income.notes ?? null
+    });
     if (error) throw error;
-
-    if (income.rider_id) {
-      const assignment = this.assignments().find(item => item.rider_id === income.rider_id && item.is_active);
-      if (assignment?.id) {
-        const lastPaymentDate = income.payment_date.slice(0, 10);
-        const nextDue = new Date(`${lastPaymentDate}T12:00:00`);
-        nextDue.setDate(nextDue.getDate() + Math.max(1, Number(assignment.payment_cycle_days) || 1));
-        const { error: dateError } = await this.supabase.from('rider_assignments').update({
-          last_payment_date: lastPaymentDate,
-          next_due_date: nextDue.toISOString().slice(0, 10)
-        }).eq('id', assignment.id);
-
-        if (dateError && !this.isMissingOptionalColumn(dateError.message)) throw dateError;
-      }
-    }
     await this.loadInitialData();
-  }
-
-  private isMissingOptionalColumn(message: string): boolean {
-    return message.toLowerCase().includes('last_payment_date') || message.toLowerCase().includes('next_due_date');
   }
 
   // Computed Dashboard Metrics
   public dashboardMetrics = computed<DashboardMetrics>(() => {
     const incList = this.incomes();
     const expList = this.expenses();
-    const assignList = this.assignments();
+    const assignList = this.assignments().filter(assignment => assignment.is_active);
 
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -158,7 +140,12 @@ export class LedgerService {
     let overdueCount = 0;
     // Check against last payment per assignment
     for (const assign of assignList) {
-      const lastInc = incList.find(i => i.rider_id === assign.rider_id);
+      const lastInc = incList
+        .filter(income => income.rider_assignment_id === assign.id
+          || (!income.rider_assignment_id
+            && income.rider_id === assign.rider_id
+            && income.payment_date >= assign.start_date))
+        .sort((a, b) => Date.parse(b.payment_date) - Date.parse(a.payment_date))[0];
       const lastDate = lastInc ? new Date(lastInc.payment_date) : new Date(assign.start_date);
       const diffDays = Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 3600 * 24));
       if (diffDays > assign.payment_cycle_days) {

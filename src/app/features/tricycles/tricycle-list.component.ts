@@ -3,9 +3,12 @@ import { Rider, RiderAssignment, Tricycle } from '../../core/models/keke.models'
 import { LedgerService } from '../../core/services/ledger.service';
 import { RiderService } from '../../core/services/rider.service';
 import { VehicleService } from '../../core/services/vehicle.service';
+import { NairaCurrencyPipe } from '../../shared/pipes/naira-currency.pipe';
+import { AgreementEvidence, AgreementEvidenceService, AgreementEvidenceType } from '../../core/services/agreement-evidence.service';
 
 @Component({
   selector: 'app-tricycle-list',
+  imports: [NairaCurrencyPipe],
   templateUrl: './tricycle-list.component.html',
   styleUrl: './tricycle-list.component.scss'
 })
@@ -14,6 +17,7 @@ export class TricycleListComponent implements OnInit {
   protected readonly vehicleService = inject(VehicleService);
   protected readonly riderService = inject(RiderService);
   protected readonly ledgerService = inject(LedgerService);
+  private readonly evidenceService = inject(AgreementEvidenceService);
   protected readonly editing = signal<Tricycle | null>(null);
   protected readonly formOpen = signal(false);
   protected readonly assignmentTricycle = signal<Tricycle | null>(null);
@@ -21,11 +25,14 @@ export class TricycleListComponent implements OnInit {
   protected readonly busy = signal(false);
   protected readonly message = signal('');
   protected readonly messageIsError = signal(false);
+  protected readonly evidence = signal<AgreementEvidence[]>([]);
+  protected readonly evidenceLinks = signal<Record<string, string>>({});
   protected readonly today = new Date().toISOString().slice(0, 10);
   
   ngOnInit() { 
     this.vehicleService.fetchVehicles(); 
     this.riderService.fetchRiders();
+    void this.refreshEvidence();
   }
 
   protected openForm(vehicle?: Tricycle): void {
@@ -94,6 +101,62 @@ export class TricycleListComponent implements OnInit {
   protected activeRider(vehicle: Tricycle): Rider | undefined {
     const assignment = this.ledgerService.assignments().find(item => item.tricycle_id === vehicle.id && item.is_active);
     return assignment?.rider ?? this.riderService.riders().find(rider => rider.id === assignment?.rider_id);
+  }
+
+  protected agreementRiderName(assignment: RiderAssignment): string {
+    return assignment.rider?.name
+      ?? this.riderService.riders().find(rider => rider.id === assignment.rider_id)?.name
+      ?? 'Unknown rider';
+  }
+
+  protected agreementTricycleLabel(assignment: RiderAssignment): string {
+    return assignment.tricycle?.plate_number
+      ?? this.vehicleService.vehicles().find(vehicle => vehicle.id === assignment.tricycle_id)?.plate_number
+      ?? 'Unknown tricycle';
+  }
+
+  protected evidenceFor(assignmentId?: string): AgreementEvidence[] {
+    return this.evidence().filter(item => item.assignment_id === assignmentId);
+  }
+
+  protected async uploadEvidence(event: Event, assignmentId: string, evidenceType: AgreementEvidenceType): Promise<void> {
+    const input = event.currentTarget;
+    if (!(input instanceof HTMLInputElement)) return;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    this.busy.set(true);
+    this.message.set('');
+    try {
+      await this.evidenceService.upload(assignmentId, evidenceType, file);
+      await this.refreshEvidence();
+      this.message.set('Agreement evidence uploaded.');
+      this.messageIsError.set(false);
+    } catch (error) {
+      this.message.set(error instanceof Error ? error.message : 'Could not upload agreement evidence.');
+      this.messageIsError.set(true);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  private async refreshEvidence(): Promise<void> {
+    try {
+      const evidence = await this.evidenceService.fetchAll();
+      const links = await Promise.all(evidence.map(async item => {
+        try {
+          return [item.id, await this.evidenceService.createSignedUrl(item.storage_path)] as const;
+        } catch {
+          return [item.id, ''] as const;
+        }
+      }));
+      this.evidence.set(evidence);
+      this.evidenceLinks.set(Object.fromEntries(links));
+    } catch (error) {
+      this.message.set(error instanceof Error ? error.message : 'Could not load agreement evidence.');
+      this.messageIsError.set(true);
+    }
   }
 
   protected async assignRider(event: SubmitEvent): Promise<void> {

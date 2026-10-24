@@ -57,6 +57,7 @@ export class LedgerTimelineComponent implements OnInit {
       payment_date: String(data.get('payment_date') ?? ''),
       rider_id: riderId,
       tricycle_id: assignment.tricycle_id,
+      rider_assignment_id: assignment.id,
       notes: String(data.get('notes') ?? '').trim() || undefined
     };
     await this.submitEntry(() => this.ledgerService.recordRiderPayment(payment), 'Payment recorded successfully.', this.paymentFormOpen);
@@ -85,10 +86,20 @@ export class LedgerTimelineComponent implements OnInit {
       this.message.set(success);
       this.messageIsError.set(false);
     } catch (error) {
-      this.message.set(error instanceof Error ? error.message : 'Could not save this ledger entry.');
+      this.message.set(this.getErrorMessage(error));
       this.messageIsError.set(true);
     } finally {
       this.busy.set(false);
     }
+  }
+
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'object' && error !== null && 'message' in error) {
+      const message = error.message;
+      const code = 'code' in error && typeof error.code === 'string' ? ` (${error.code})` : '';
+      if (typeof message === 'string') return `${message}${code}`;
+    }
+    return 'Could not save this ledger entry.';
   }
 }

@@ -25,6 +25,50 @@
       <div class="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center"><p class="font-semibold text-slate-800">No tricycles registered</p><p class="mt-1 text-sm text-slate-500">Add a Keke to start recording income and expenses.</p></div>
     }
   </div>
+
+  <section aria-labelledby="agreement-history-title" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-5 py-4">
+      <h2 id="agreement-history-title" class="font-semibold text-slate-900">Agreement history</h2>
+      <p class="mt-1 text-sm text-slate-500">Current and previous rider agreements, including their payment terms.</p>
+    </div>
+    @if (ledgerService.assignments().length > 0) {
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[720px] text-left text-sm">
+          <thead class="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+            <tr><th class="px-5 py-3">Rider</th><th class="px-5 py-3">Tricycle</th><th class="px-5 py-3">Agreement</th><th class="px-5 py-3">Dates</th><th class="px-5 py-3">Status</th><th class="px-5 py-3">Handover evidence</th></tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            @for (agreement of ledgerService.assignments(); track agreement.id) {
+              <tr>
+                <td class="px-5 py-3 font-medium text-slate-900">{{ agreementRiderName(agreement) }}</td>
+                <td class="px-5 py-3 text-slate-700">{{ agreementTricycleLabel(agreement) }}</td>
+                <td class="px-5 py-3 text-slate-700">{{ agreement.agreement_amount | naira }} / {{ agreement.payment_cycle_days }} days</td>
+                <td class="px-5 py-3 text-slate-700">{{ agreement.start_date }}{{ agreement.end_date ? ' to ' + agreement.end_date : ' onward' }}</td>
+                <td class="px-5 py-3"><span class="rounded-full px-2.5 py-1 text-xs font-semibold" [class.bg-emerald-50]="agreement.is_active" [class.text-emerald-800]="agreement.is_active" [class.bg-slate-100]="!agreement.is_active" [class.text-slate-600]="!agreement.is_active">{{ agreement.is_active ? 'Active' : 'Ended' }}</span></td>
+                <td class="px-5 py-3">
+                  <div class="flex min-w-64 flex-col gap-2">
+                    @for (item of evidenceFor(agreement.id); track item.id) {
+                      @if (evidenceLinks()[item.id]) {
+                        <a [href]="evidenceLinks()[item.id]" target="_blank" rel="noopener noreferrer" class="max-w-64 truncate text-xs font-medium text-blue-700 underline" [attr.aria-label]="'Open ' + item.evidence_type.replace('_', ' ')">{{ item.evidence_type === 'vehicle_photo' ? 'Vehicle photo' : 'Signed agreement' }} · {{ item.original_filename }}</a>
+                      } @else {
+                        <span class="text-xs text-slate-500">{{ item.evidence_type === 'vehicle_photo' ? 'Vehicle photo' : 'Signed agreement' }} · link unavailable</span>
+                      }
+                    }
+                    @if (agreement.id) {
+                      <label class="text-xs font-medium text-blue-700">Add vehicle photo<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" [disabled]="busy()" (change)="uploadEvidence($event, agreement.id!, 'vehicle_photo')" class="mt-1 block w-64 text-xs text-slate-600 file:mr-2 file:rounded-md file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:font-semibold file:text-blue-800"></label>
+                      <label class="text-xs font-medium text-blue-700">Add signed agreement<input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" [disabled]="busy()" (change)="uploadEvidence($event, agreement.id!, 'signed_agreement')" class="mt-1 block w-64 text-xs text-slate-600 file:mr-2 file:rounded-md file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:font-semibold file:text-blue-800"></label>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="px-5 py-8 text-center text-sm text-slate-500">No agreements have been recorded yet.</p>
+    }
+  </section>
 </section>
 
 @if (formOpen()) {
@@ -51,7 +95,7 @@
       <form class="space-y-4" (submit)="assignRider($event)">
         <label class="block text-sm font-medium text-slate-700">Rider<select name="rider_id" required class="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"><option value="">Choose rider</option>@for (rider of riderService.riders(); track rider.id) { <option [value]="rider.id">{{ rider.name }} · {{ rider.phone }}</option> }</select></label>
         <label class="block text-sm font-medium text-slate-700">Agreement amount per cycle (₦)<input name="agreement_amount" type="number" min="1" step="0.01" required class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
-        <label class="block text-sm font-medium text-slate-700">Payment cycle (days)<input name="payment_cycle_days" type="number" min="1" max="365" value="1" required class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
+        <label class="block text-sm font-medium text-slate-700">Payment cycle (days)<input name="payment_cycle_days" type="number" min="1" max="365" value="2" required class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
         <label class="block text-sm font-medium text-slate-700">Start date<input name="start_date" type="date" required [value]="today" class="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"></label>
         @if (messageIsError() && message()) { <p class="text-sm text-rose-700" role="alert">{{ message() }}</p> }
         <button [disabled]="busy() || riderService.riders().length === 0" class="min-h-11 w-full rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">{{ busy() ? 'Saving…' : 'Save assignment' }}</button>

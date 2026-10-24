@@ -19,8 +19,15 @@
         </svg>
         View reports
       </a>
+      <button type="button" (click)="enableReminders()" [disabled]="notificationService.remindersEnabled()" class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-default disabled:opacity-60">
+        {{ notificationService.remindersEnabled() ? 'Reminders enabled' : 'Enable browser reminders' }}
+      </button>
     </nav>
   </header>
+
+  @if (notificationMessage()) {
+    <p class="rounded-xl border px-4 py-3 text-sm" [class.border-rose-200]="notificationError()" [class.bg-rose-50]="notificationError()" [class.text-rose-800]="notificationError()" [class.border-emerald-200]="!notificationError()" [class.bg-emerald-50]="!notificationError()" [class.text-emerald-800]="!notificationError()" role="status">{{ notificationMessage() }}</p>
+  }
 
   <section aria-labelledby="metrics-heading">
     <div class="mb-3 flex items-center justify-between">

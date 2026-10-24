@@ -51,6 +51,7 @@ export interface Income {
   payment_date: string;
   rider_id?: string;
   tricycle_id: string;
+  rider_assignment_id?: string;
   notes?: string;
 }
 
